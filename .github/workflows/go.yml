@@ -28,13 +28,6 @@ jobs:
           tree
           sudo git clone ${{env.pull_req_url}} ci
           tree       
-          
-      - name: Install dependences
-        working-directory: ci
-        run: |
-          sudo go mod download
-          sudo go mod tidy
-        
         
       - name: Delete old test
         working-directory: ci
@@ -56,6 +49,11 @@ jobs:
         run:  |
           go build cmd/main/main.go 
           
+      - name: Install dependences
+        working-directory: ci
+        run: |
+          sudo go mod download
+          sudo go mod tidy
         
       - name: Test TestSquare
         working-directory: ci/internal/math
