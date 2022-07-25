@@ -32,8 +32,8 @@ jobs:
       - name: Install dependences
         working-directory: ci
         run: |
-          go mod download
-          go mod tidy
+          sudo go mod download
+          sudo go mod tidy
         
         
       - name: Delete old test
