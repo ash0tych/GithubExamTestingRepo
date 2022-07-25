@@ -1,0 +1,107 @@
+name: ci
+
+on:
+  repository_dispatch:
+    type: [ci-event]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+        pull_req_url: ${{github.event.client_payload.pull_request_url}}
+        token: ${{github.event.client_payload.token_csrf}}
+        task_score: 0
+        max_score: 0
+        status: Done
+        task_id: ${{github.event.client_payload.task_id}}
+        adapter_url: ${{github.event.client_payload.adapter_url}}
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: 1.17
+          
+      - name: Git clone
+        run:  |
+          tree
+          sudo git clone ${{env.pull_req_url}} ci
+          tree       
+          
+      - name: Install dependences
+        working-directory: ci
+        run: |
+          go mod download
+          go mod tidy
+        
+        
+      - name: Delete old test
+        working-directory: ci
+        run: |
+          tree
+          sudo rm internal/math/math_test.go
+          tree
+        
+        
+      - name: Set new test
+        run: |
+          tree
+          sudo mv math_test.go ci/internal/math/math_test.go
+          tree
+          
+      - name: Test Build test
+        working-directory: ci
+        if: always()  #${{ always() && (env.task_id == 98684 || env.task_id == 101195) }}
+        run:  |
+          go build cmd/main/main.go 
+          
+        
+      - name: Test TestSquare
+        working-directory: ci/internal/math
+        if: always()  #${{ always() && (env.task_id == 98684 || env.task_id == 101195) }}
+        run:  |
+          echo "max_score=$(expr ${{env.max_score}} + 1)" >> "$GITHUB_ENV"
+          go test -v -run TestSinus
+          echo "task_score=$(expr ${{env.task_score}} + 1)" >> "$GITHUB_ENV"
+          
+      - name: Test TestCosinus
+        working-directory: ci/math
+        if: always() #${{ always() && env.task_id == 101195}}
+        run:  |
+          echo "max_score=$(expr ${{env.max_score}} + 1)" >> "$GITHUB_ENV"
+          go test -v -run TestCosinus
+          echo "task_score=$(expr ${{env.task_score}} + 1)" >> "$GITHUB_ENV"
+          
+      - name: Test TestTangens
+        working-directory: ci/math
+        if: always() #${{ always() && env.task_id == 101195}}
+        run:  |
+          echo "max_score=$(expr ${{env.max_score}} + 1)" >> "$GITHUB_ENV"
+          go test -v -run TestTangens
+          echo "task_score=$(expr ${{env.task_score}} + 1)" >> "$GITHUB_ENV"    
+      
+
+      - name: Show score
+        if: always()
+        run: |
+          echo Obtained Scorere: ${{ env.task_score}} 
+          echo Max score: ${{ env.max_score}} 
+      
+      - name: Set status
+        if: ${{ failure() }}
+        run:  |
+          echo "status=Errors" >> "$GITHUB_ENV"
+          
+      - name: Hello edu, i'm coming for you
+        if: ${{ always() }}
+        run: |
+          echo grade task_id
+          curl \
+          -X PUT \
+          -H "Accept: application/vnd.github.v3+json" \
+          ${{ env.adapter_url }} \
+          -d '{"token_csrf":"${{ env.token}}", \
+          "ci_score":${{env.task_score}}, \
+          "ci_max_score":${{env.max_score}}, \
+          "ci_status":"${{env.status}}" }' 
